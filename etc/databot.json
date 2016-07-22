@@ -1,0 +1,6 @@
+{
+	"SlackApiUrl": "https://slack.com/api",
+	"SlackApiToken": "FILLMEINSECRETAPITOKEN",
+	"JiraUrlPrefix": "FILLMEINJIRAURLPREFIX",
+	"SlackDilbertChannel": "FILLMEINSLACKCHANNELTOGETDILBERT"
+}
