@@ -26,7 +26,7 @@ func (wsClient *websocketData) readSocket() []byte {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Received %d bytes\n", n)
+	logDebug(fmt.Sprintf("Received %d bytes", n))
 	return msg
 }
 
@@ -36,5 +36,5 @@ func (wsClient *websocketData) writeSocket(data []byte) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Wrote %d bytes\n", n)
+	logDebug(fmt.Sprintf("Wrote %d bytes", n))
 }

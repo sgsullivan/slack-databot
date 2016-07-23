@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -17,7 +16,7 @@ func dilbertRoutine(wsClient websocketData) {
 			store.DilbertLastPosted = dateString
 			comic := fmt.Sprintf("http://dilbert.com/strip/%s\n", dateString)
 			wsClient.createSlackPost(comic, config.SlackDilbertChannel)
-			log.Printf("Posted %s", comic)
+			logDebug(fmt.Sprintf("Posted %s", comic))
 		}
 	}
 }

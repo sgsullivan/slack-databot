@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -43,7 +42,7 @@ func isJiraIssueUrlRequest(readFromSlack []byte) bool {
 	if err != nil {
 		logDebug(fmt.Sprintf("Failed json decoding: [%s]", readFromSlack))
 	} else if len(slackEvent.Text) > 0 {
-		log.Printf("Comparing message event text field: [%s]", slackEvent.Text)
+		logDebug(fmt.Sprintf("Comparing message event text field: [%s]", slackEvent.Text))
 		jiraLinkRequested, _ := regexp.MatchString("jira#.*", slackEvent.Text)
 		if jiraLinkRequested {
 			return true
@@ -70,15 +69,11 @@ func getJiraIssueDetails(jiraIssue string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf(fmt.Sprintf("Error reading response body: %s", err))
 	}
-
 	// json decode
 	var jr jiraIssueResp
 	jsonDecodeErr := json.Unmarshal(bsRb, &jr)
 	if jsonDecodeErr != nil {
 		return "", "", fmt.Errorf(fmt.Sprintf("Error JSON decoding response body: %s", jsonDecodeErr))
 	}
-
-	log.Printf("\n\nGOT BACK\n%v\n\n", jr)
-
 	return jr.Fields.Summary, jr.Fields.Assignee.Name, nil
 }
