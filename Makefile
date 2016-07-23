@@ -6,7 +6,7 @@ clean:
 	rm -rf _exe/
 
 build:
-	go build -x -o _exe/databot main.go utils.go slack.go ws.go
+	go build -x -o _exe/databot *.go
 
 test:
 	go test -v

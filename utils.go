@@ -22,10 +22,16 @@ func populateConfig() {
 		log.Fatal(fmt.Sprintf("Failed decoding configFile [%s]: %s", configFile, jsonErr))
 	}
 	// Ensure required config items are set
-	reqConfigItems := []string{config.SlackApiUrl, config.SlackApiToken}
+	reqConfigItems := []string{
+		config.SlackApiUrl,
+		config.SlackApiToken,
+		config.SlackDilbertChannel,
+		config.JiraUrl,
+		config.JiraUser,
+		config.JiraPass}
 	for _, item := range reqConfigItems {
 		if len(item) < 1 {
-			log.Fatal("Missing required config item(s); Required: SlackApiUrl, SlackApiToken")
+			log.Fatal("Missing required config item(s)")
 		}
 	}
 }

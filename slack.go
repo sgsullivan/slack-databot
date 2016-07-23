@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 )
 
@@ -79,7 +77,12 @@ func connectToSlack() {
 		if isJiraIssueUrlRequest(readFromSlack) {
 			jiraIssue, slackChannel, err := getJiraIssue(readFromSlack)
 			if err == nil {
-				wsClient.createSlackPost(fmt.Sprintf("%s/%s :point_left:", config.JiraUrlPrefix, jiraIssue), slackChannel)
+				subject, assignee, err := getJiraIssueDetails(jiraIssue)
+				if err != nil {
+					wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
+				} else {
+					wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s] *Assignee:* [%s]", config.JiraUrl, jiraIssue, subject, assignee), slackChannel)
+				}
 			} else {
 				wsClient.createSlackPost(fmt.Sprintf("%s", err), slackChannel)
 			}
@@ -87,54 +90,6 @@ func connectToSlack() {
 			log.Printf("No work to do!")
 		}
 	}
-}
-
-func dilbertRoutine(wsClient websocketData) {
-	hour, minute, _ := time.Now().Clock()
-	// post at 07:30 AM
-	if hour == 07 && minute == 30 {
-		year, month, day := time.Now().Date()
-		dateString := fmt.Sprintf("%d-%s-%d\n", year, month, day)
-		// only post once per given hour/minute
-		if store.DilbertLastPosted != dateString {
-			store.DilbertLastPosted = dateString
-			comic := fmt.Sprintf("http://dilbert.com/strip/%s\n", dateString)
-			wsClient.createSlackPost(comic, config.SlackDilbertChannel)
-			log.Printf("Posted %s", comic)
-		}
-	}
-}
-
-func getJiraIssue(readFromSlack []byte) (string, string, error) {
-	var slackEvent slackRtmEvent
-	readFromSlack = bytes.Trim(readFromSlack, "\x00")
-	err := json.Unmarshal(readFromSlack, &slackEvent)
-	if err != nil {
-		return "", slackEvent.Channel, fmt.Errorf("uh, someone cant JSON :/\n%s", err)
-	}
-	re := regexp.MustCompile("jira#[A-z]+-[0-9]+")
-	jiraIssue := fmt.Sprintf("%s", re.FindString(slackEvent.Text))
-	if len(jiraIssue) == 0 {
-		return "", slackEvent.Channel, fmt.Errorf("that appears to be an invalid Jira issue :-1:")
-	}
-	return strings.Replace(jiraIssue, "jira#", "", 1), slackEvent.Channel, nil
-}
-
-func isJiraIssueUrlRequest(readFromSlack []byte) bool {
-	var slackEvent slackRtmEvent
-	readFromSlack = bytes.Trim(readFromSlack, "\x00")
-	err := json.Unmarshal(readFromSlack, &slackEvent)
-	// This is here because it will fail to json decode non message type events with the given reference
-	if err != nil {
-		log.Printf("Failed json decoding: [%s]", readFromSlack)
-	} else if len(slackEvent.Text) > 0 {
-		log.Printf("Comparing message event text field: [%s]", slackEvent.Text)
-		jiraLinkRequested, _ := regexp.MatchString("jira#.*", slackEvent.Text)
-		if jiraLinkRequested {
-			return true
-		}
-	}
-	return false
 }
 
 // rtmStart ...

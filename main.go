@@ -8,7 +8,9 @@ type configData struct {
 	SlackApiUrl         string
 	SlackApiToken       string
 	HttpTimeout         int
-	JiraUrlPrefix       string
+	JiraUrl             string
+	JiraUser            string
+	JiraPass            string
 	SlackDilbertChannel string
 }
 
