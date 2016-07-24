@@ -15,7 +15,8 @@ type jiraIssueResp struct {
 		Assignee struct {
 			Name string `json:"name,omitempty"`
 		}
-		Summary string `json:"summary,omitempty"`
+		Summary     string `json:"summary,omitempty"`
+		Description string `json:"description,omitempty"`
 	} `json:"fields"`
 }
 
@@ -51,7 +52,23 @@ func isJiraIssueUrlRequest(readFromSlack []byte) bool {
 	return false
 }
 
-func getJiraIssueDetails(jiraIssue string) (string, string, error) {
+func jiraIssueDescriptionRequested(readFromSlack []byte) bool {
+	var slackEvent slackRtmEvent
+	readFromSlack = bytes.Trim(readFromSlack, "\x00")
+	json.Unmarshal(readFromSlack, &slackEvent)
+	// Only message events have the Text field.
+	if len(slackEvent.Text) > 0 {
+		r, _ := regexp.Compile(`jira#\S+\.describe`)
+		res := r.FindString(slackEvent.Text)
+		if len(res) > 0 {
+			logDebug("Recieved a request for a jira issue description")
+			return true
+		}
+	}
+	return false
+}
+
+func getJiraIssueDetails(jiraIssue string) (string, string, string, error) {
 	hClient := &http.Client{}
 	jiraReqUrl := fmt.Sprintf("%s/rest/api/latest/issue/%s", config.JiraUrl, jiraIssue)
 	logDebug(fmt.Sprintf("JIRA URL: %s", jiraReqUrl))
@@ -59,21 +76,21 @@ func getJiraIssueDetails(jiraIssue string) (string, string, error) {
 	req.SetBasicAuth(config.JiraUser, config.JiraPass)
 	resp, err := hClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf(fmt.Sprintf("got non-200 http code: [%d]", resp.StatusCode))
+		return "", "", "", fmt.Errorf(fmt.Sprintf("got non-200 http code: [%d]", resp.StatusCode))
 	}
 	bsRb, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", fmt.Errorf(fmt.Sprintf("Error reading response body: %s", err))
+		return "", "", "", fmt.Errorf(fmt.Sprintf("Error reading response body: %s", err))
 	}
 	// json decode
 	var jr jiraIssueResp
 	jsonDecodeErr := json.Unmarshal(bsRb, &jr)
 	if jsonDecodeErr != nil {
-		return "", "", fmt.Errorf(fmt.Sprintf("Error JSON decoding response body: %s", jsonDecodeErr))
+		return "", "", "", fmt.Errorf(fmt.Sprintf("Error JSON decoding response body: %s", jsonDecodeErr))
 	}
-	return jr.Fields.Summary, jr.Fields.Assignee.Name, nil
+	return jr.Fields.Summary, jr.Fields.Assignee.Name, jr.Fields.Description, nil
 }
