@@ -68,7 +68,7 @@ func jiraIssueDescriptionRequested(readFromSlack []byte) bool {
 	return false
 }
 
-func getJiraIssueDetails(jiraIssue string) (string, string, string, error) {
+func getJiraIssueDetails(jiraIssue string) (string, string, error) {
 	hClient := &http.Client{}
 	jiraReqUrl := fmt.Sprintf("%s/rest/api/latest/issue/%s", config.JiraUrl, jiraIssue)
 	logDebug(fmt.Sprintf("JIRA URL: %s", jiraReqUrl))
@@ -76,21 +76,21 @@ func getJiraIssueDetails(jiraIssue string) (string, string, string, error) {
 	req.SetBasicAuth(config.JiraUser, config.JiraPass)
 	resp, err := hClient.Do(req)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", "", "", fmt.Errorf(fmt.Sprintf("got non-200 http code: [%d]", resp.StatusCode))
+		return "", "", fmt.Errorf(fmt.Sprintf("got non-200 http code: [%d]", resp.StatusCode))
 	}
 	bsRb, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", "", fmt.Errorf(fmt.Sprintf("Error reading response body: %s", err))
+		return "", "", fmt.Errorf(fmt.Sprintf("Error reading response body: %s", err))
 	}
 	// json decode
 	var jr jiraIssueResp
 	jsonDecodeErr := json.Unmarshal(bsRb, &jr)
 	if jsonDecodeErr != nil {
-		return "", "", "", fmt.Errorf(fmt.Sprintf("Error JSON decoding response body: %s", jsonDecodeErr))
+		return "", "", fmt.Errorf(fmt.Sprintf("Error JSON decoding response body: %s", jsonDecodeErr))
 	}
-	return jr.Fields.Summary, jr.Fields.Assignee.Name, jr.Fields.Description, nil
+	return jr.Fields.Summary, jr.Fields.Description, nil
 }

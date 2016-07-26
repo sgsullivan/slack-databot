@@ -77,7 +77,7 @@ func connectToSlack() {
 		if isJiraIssueUrlRequest(readFromSlack) {
 			jiraIssue, slackChannel, err := getJiraIssue(readFromSlack)
 			if err == nil {
-				subject, assignee, description, err := getJiraIssueDetails(jiraIssue)
+				subject, description, err := getJiraIssueDetails(jiraIssue)
 				if err != nil {
 					wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
 				} else {
@@ -85,7 +85,7 @@ func connectToSlack() {
 					if jiraIssueDescriptionRequested(readFromSlack) {
 						wsClient.createSlackPost(fmt.Sprintf("*[jira#%s] Description:* :point_down:\n%s", jiraIssue, description), slackChannel)
 					} else {
-						wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s] *Assignee:* [%s]", config.JiraUrl, jiraIssue, subject, assignee), slackChannel)
+						wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s]", config.JiraUrl, jiraIssue, subject), slackChannel)
 					}
 				}
 			} else {
