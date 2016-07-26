@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -75,17 +76,20 @@ func connectToSlack() {
 		log.Printf("received: %s", readFromSlack)
 
 		if isJiraIssueUrlRequest(readFromSlack) {
-			jiraIssue, slackChannel, err := getJiraIssue(readFromSlack)
+			jiraIssues, slackChannel, err := getJiraIssues(readFromSlack)
 			if err == nil {
-				subject, description, err := getJiraIssueDetails(jiraIssue)
-				if err != nil {
-					wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
-				} else {
-					// Show description if requested
-					if jiraIssueDescriptionRequested(readFromSlack) {
-						wsClient.createSlackPost(fmt.Sprintf("*[jira#%s] Description:* :point_down:\n%s", jiraIssue, description), slackChannel)
+				for v := range jiraIssues {
+					jiraIssue := strings.Replace(jiraIssues[v], "jira#", "", 1)
+					subject, description, err := getJiraIssueDetails(jiraIssue)
+					if err != nil {
+						wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
 					} else {
-						wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s]", config.JiraUrl, jiraIssue, subject), slackChannel)
+						// Show description if requested
+						if jiraIssueDescriptionRequested(readFromSlack) {
+							wsClient.createSlackPost(fmt.Sprintf("*[jira#%s] Description:* :point_down:\n%s", jiraIssue, description), slackChannel)
+						} else {
+							wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s]", config.JiraUrl, jiraIssue, subject), slackChannel)
+						}
 					}
 				}
 			} else {

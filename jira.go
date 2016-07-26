@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 )
 
 type jiraIssueResp struct {
@@ -20,19 +19,19 @@ type jiraIssueResp struct {
 	} `json:"fields"`
 }
 
-func getJiraIssue(readFromSlack []byte) (string, string, error) {
+func getJiraIssues(readFromSlack []byte) ([]string, string, error) {
 	var slackEvent slackRtmEvent
 	readFromSlack = bytes.Trim(readFromSlack, "\x00")
 	err := json.Unmarshal(readFromSlack, &slackEvent)
 	if err != nil {
-		return "", slackEvent.Channel, fmt.Errorf("uh, someone cant JSON :/\n%s", err)
+		return []string{}, slackEvent.Channel, fmt.Errorf("uh, someone cant JSON :/\n%s", err)
 	}
 	re := regexp.MustCompile("jira#[A-z]+-[0-9]+")
-	jiraIssue := fmt.Sprintf("%s", re.FindString(slackEvent.Text))
-	if len(jiraIssue) == 0 {
-		return "", slackEvent.Channel, fmt.Errorf("that appears to be an invalid Jira issue :-1:")
+	jiraIssues := re.FindAllString(slackEvent.Text, -1)
+	if len(jiraIssues) == 0 {
+		return []string{}, slackEvent.Channel, fmt.Errorf("that appears to be an invalid Jira issue :-1:")
 	}
-	return strings.Replace(jiraIssue, "jira#", "", 1), slackEvent.Channel, nil
+	return jiraIssues, slackEvent.Channel, nil
 }
 
 func isJiraIssueUrlRequest(readFromSlack []byte) bool {
