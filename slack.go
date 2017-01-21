@@ -21,6 +21,7 @@ type slackRtmEvent struct {
 	Channel string `json:"channel,omitempty"`
 	Team    string `json:"team,omitempty"`
 	User    string `json:"user,omitempty"`
+	Url     string `json:"url,omitempty"`
 }
 
 // The only output from a rtm.start we care about is the websocket url
@@ -33,7 +34,8 @@ type httpClient struct {
 }
 
 var store struct {
-	DilbertLastPosted string
+	DilbertLastPosted   string
+	LastRtmConnectEpoch int64
 }
 
 // Per slack docs, this is the maximum size
@@ -58,6 +60,27 @@ func (wsClient *websocketData) createSlackPost(msg string, channel string) {
 	wsClient.writeSocket(jPayload)
 }
 
+func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
+	currentEpoch := time.Now().Unix()
+	secondsElapsed := currentEpoch - store.LastRtmConnectEpoch
+	// if its been more than 7 minutes..
+	if secondsElapsed >= 420 {
+		logDebug("Exceeded secondsElapsed! Waiting for a reconnect_url...")
+		// if reconnect .. {"type":"reconnect_url","url":"wss://mpmulti-fzxb.slack-msgs.com/stripped"}
+		var slackEvent slackRtmEvent
+		readFromSlack = bytes.Trim(readFromSlack, "\x00")
+		err := json.Unmarshal(readFromSlack, &slackEvent)
+		if err != nil {
+			log.Fatal(fmt.Sprintf("Error decoding JSON from slack: %s", err))
+		}
+		if slackEvent.Type == "reconnect_url" {
+			ws := connectWebsocket(slackEvent.Url)
+			wsClient = &websocketData{ws}
+			log.Printf("Reconnected to reconnect_url: [%s]", slackEvent.Url)
+		}
+	}
+}
+
 // connectToSlack ...
 func connectToSlack() {
 	wssUrl := rtmStart()
@@ -65,15 +88,16 @@ func connectToSlack() {
 	wsClient := websocketData{ws}
 	// main execution, once connected.
 	for {
-		go dilbertRoutine(wsClient)
 		message := make(chan []byte)
 		go func() {
 			message <- wsClient.readSocket()
 			close(message)
 		}()
 		readFromSlack := <-message
-
 		log.Printf("received: %s", readFromSlack)
+
+		wsClient.reconnectRtmIfExpired(readFromSlack)
+		go dilbertRoutine(wsClient)
 
 		if isJiraIssueUrlRequest(readFromSlack) {
 			jiraIssues, slackChannel, err := getJiraIssues(readFromSlack)
