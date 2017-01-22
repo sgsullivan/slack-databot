@@ -74,9 +74,23 @@ func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
 			log.Fatal(fmt.Sprintf("Error decoding JSON from slack: %s", err))
 		}
 		if slackEvent.Type == "reconnect_url" {
+			if wsClient.ws.IsClientConn() {
+				logDebug("IsClientConn() says we ARE connected!")
+			} else {
+				logDebug("IsClientConn() says we ARENT connected!")
+			}
+
+			closeErr := wsClient.ws.Close()
+			if closeErr != nil {
+				log.Fatal(fmt.Sprintf("Error closing websocket for reconnect: %s", closeErr))
+			}
+
 			ws := connectWebsocket(slackEvent.Url)
-			wsClient = &websocketData{ws}
+			*wsClient = websocketData{ws}
 			log.Printf("Reconnected to reconnect_url: [%s]", slackEvent.Url)
+			if wsClient.ws.IsClientConn() {
+				logDebug("IsClientConn() says connected after reconnect!")
+			}
 		}
 	}
 }
