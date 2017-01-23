@@ -71,7 +71,8 @@ func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
 		readFromSlack = bytes.Trim(readFromSlack, "\x00")
 		err := json.Unmarshal(readFromSlack, &slackEvent)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Error decoding JSON from slack: %s", err))
+			log.Printf("Skipping JSON message from slack! Error decoding JSON: %s", err)
+			return
 		}
 		if slackEvent.Type == "reconnect_url" {
 			if wsClient.ws.IsClientConn() {
