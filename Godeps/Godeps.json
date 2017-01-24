@@ -1,0 +1,11 @@
+{
+	"ImportPath": "github.com/sgsullivan/slack-databot",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "ef2e00e88c5e0a3569f0bb9df697e9cbc6215fea"
+		}
+	]
+}
