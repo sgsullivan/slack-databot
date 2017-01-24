@@ -36,14 +36,19 @@ func populateConfig() {
 	}
 }
 
-// getConfigLocation ...
-func getConfigLocation() string {
+func getHomeEtc() string {
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Failed getting users home directory: %s", err))
 	}
-	logDebug(fmt.Sprintf("discovered config file %s/etc/databot.json", usr.HomeDir))
-	return fmt.Sprintf("%s/etc/databot.json", usr.HomeDir)
+	logDebug(fmt.Sprintf("discovered HOME etc %s/etc", usr.HomeDir))
+	return fmt.Sprintf("%s/etc", usr.HomeDir)
+}
+
+// getConfigLocation ...
+func getConfigLocation() string {
+	homeDir := getHomeEtc()
+	return fmt.Sprintf("%s/databot.json", homeDir)
 }
 
 // logDebug ...
@@ -52,4 +57,29 @@ func logDebug(msg string) {
 		return
 	}
 	log.Printf(fmt.Sprintf("DEBUG: %s", msg))
+}
+
+func createDirIfMissing(fileLoc string, perm uint32) error {
+	if !pathExists(fileLoc) {
+		if err := os.MkdirAll(fileLoc, os.FileMode(perm)); err != nil {
+			return fmt.Errorf("Failed creating %s; [%s]", fileLoc, err)
+		}
+	}
+	return nil
+}
+
+func pathExists(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
+
+func createFile(path string) error {
+	f, err := os.Create(path)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -34,7 +34,7 @@ type httpClient struct {
 }
 
 var store struct {
-	DilbertLastPosted   string
+	DilbertBackOffUntil time.Time
 	LastRtmConnectEpoch int64
 }
 
@@ -112,7 +112,8 @@ func connectToSlack() {
 		log.Printf("received: %s", readFromSlack)
 
 		wsClient.reconnectRtmIfExpired(readFromSlack)
-		go dilbertRoutine(wsClient)
+
+		dilbertRoutine(wsClient)
 
 		if isJiraIssueUrlRequest(readFromSlack) {
 			jiraIssues, slackChannel, err := getJiraIssues(readFromSlack)
