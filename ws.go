@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/net/websocket"
 	"log"
-	"time"
+	//"time"
 )
 
 type websocketData struct {
@@ -17,7 +17,7 @@ func connectWebsocket(wssUrl string) *websocket.Conn {
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error connecting to websocket: %s", err))
 	}
-	store.LastRtmConnectEpoch = time.Now().Unix()
+	//store.LastRtmConnectEpoch = time.Now().Unix()
 
 	return ws
 }

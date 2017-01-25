@@ -41,7 +41,6 @@ func getHomeEtc() string {
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Failed getting users home directory: %s", err))
 	}
-	logDebug(fmt.Sprintf("discovered HOME etc %s/etc", usr.HomeDir))
 	return fmt.Sprintf("%s/etc", usr.HomeDir)
 }
 

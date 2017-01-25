@@ -35,7 +35,7 @@ type httpClient struct {
 
 var store struct {
 	DilbertBackOffUntil time.Time
-	LastRtmConnectEpoch int64
+	//LastRtmConnectEpoch int64
 }
 
 // Per slack docs, this is the maximum size
@@ -60,6 +60,7 @@ func (wsClient *websocketData) createSlackPost(msg string, channel string) {
 	wsClient.writeSocket(jPayload)
 }
 
+/*
 func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
 	currentEpoch := time.Now().Unix()
 	secondsElapsed := currentEpoch - store.LastRtmConnectEpoch
@@ -95,48 +96,70 @@ func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
 		}
 	}
 }
+*/
 
-// connectToSlack ...
-func connectToSlack() {
+func connAndCreateWsClient() websocketData {
 	wssUrl := rtmStart()
 	ws := connectWebsocket(wssUrl)
 	wsClient := websocketData{ws}
-	// main execution, once connected.
+	return wsClient
+}
+
+// connectToSlack ...
+func connectToSlack() {
+	wsClient := connAndCreateWsClient()
 	for {
+		// slack, you are evil
+		slackTimeout := make(chan bool, 1)
+		go func() {
+			time.Sleep(90 * time.Second)
+			slackTimeout <- true
+		}()
+
 		message := make(chan []byte)
 		go func() {
 			message <- wsClient.readSocket()
 			close(message)
 		}()
-		readFromSlack := <-message
-		log.Printf("received: %s", readFromSlack)
+		select {
+		case readFromSlack := <-message:
+			log.Printf("received: %s", readFromSlack)
+			dilbertRoutine(wsClient)
+			processJiraReq(wsClient, readFromSlack)
+		case <-slackTimeout:
+			// damn you slack
+			log.Printf("Hit slackTimeout! Attempting reconnection...")
+			if wsClient.ws.IsClientConn() {
+				logDebug("slackTimeout hit, but IsClientConn() says connected.. disconnecting before reconnect...")
+				if closeErr := wsClient.ws.Close(); closeErr != nil {
+					log.Fatal(fmt.Sprintf("Unable to close websocket connection: %s", closeErr))
+				}
+			}
+			wsClient = connAndCreateWsClient()
+		}
+	}
+}
 
-		wsClient.reconnectRtmIfExpired(readFromSlack)
-
-		dilbertRoutine(wsClient)
-
-		if isJiraIssueUrlRequest(readFromSlack) {
-			jiraIssues, slackChannel, err := getJiraIssues(readFromSlack)
-			if err == nil {
-				for v := range jiraIssues {
-					jiraIssue := strings.Replace(jiraIssues[v], "jira#", "", 1)
-					subject, description, err := getJiraIssueDetails(jiraIssue)
-					if err != nil {
-						wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
+func processJiraReq(wsClient websocketData, readFromSlack []byte) {
+	if isJiraIssueUrlRequest(readFromSlack) {
+		jiraIssues, slackChannel, err := getJiraIssues(readFromSlack)
+		if err == nil {
+			for v := range jiraIssues {
+				jiraIssue := strings.Replace(jiraIssues[v], "jira#", "", 1)
+				subject, description, err := getJiraIssueDetails(jiraIssue)
+				if err != nil {
+					wsClient.createSlackPost(fmt.Sprintf("Error when fetching jira issue [%s]: %s :rage:", jiraIssue, err), slackChannel)
+				} else {
+					// Show description if requested
+					if jiraIssueDescriptionRequested(readFromSlack) {
+						wsClient.createSlackPost(fmt.Sprintf("*[jira#%s] Description:* :point_down:\n%s", jiraIssue, description), slackChannel)
 					} else {
-						// Show description if requested
-						if jiraIssueDescriptionRequested(readFromSlack) {
-							wsClient.createSlackPost(fmt.Sprintf("*[jira#%s] Description:* :point_down:\n%s", jiraIssue, description), slackChannel)
-						} else {
-							wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s]", config.JiraUrl, jiraIssue, subject), slackChannel)
-						}
+						wsClient.createSlackPost(fmt.Sprintf("%s/browse/%s :point_left:\n*Subject:* [%s]", config.JiraUrl, jiraIssue, subject), slackChannel)
 					}
 				}
-			} else {
-				wsClient.createSlackPost(fmt.Sprintf("%s", err), slackChannel)
 			}
 		} else {
-			log.Printf("No work to do!")
+			wsClient.createSlackPost(fmt.Sprintf("%s", err), slackChannel)
 		}
 	}
 }
