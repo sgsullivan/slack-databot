@@ -129,12 +129,6 @@ func connectToSlack() {
 		case <-slackTimeout:
 			// damn you slack
 			log.Printf("Hit slackTimeout! Attempting reconnection...")
-			if wsClient.ws.IsClientConn() {
-				logDebug("slackTimeout hit, but IsClientConn() says connected.. disconnecting before reconnect...")
-				if closeErr := wsClient.ws.Close(); closeErr != nil {
-					log.Fatal(fmt.Sprintf("Unable to close websocket connection: %s", closeErr))
-				}
-			}
 			wsClient = connAndCreateWsClient()
 		}
 	}
