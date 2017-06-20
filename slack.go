@@ -60,44 +60,6 @@ func (wsClient *websocketData) createSlackPost(msg string, channel string) {
 	wsClient.writeSocket(jPayload)
 }
 
-/*
-func (wsClient *websocketData) reconnectRtmIfExpired(readFromSlack []byte) {
-	currentEpoch := time.Now().Unix()
-	secondsElapsed := currentEpoch - store.LastRtmConnectEpoch
-	// if its been more than 7 minutes..
-	if secondsElapsed >= 420 {
-		logDebug("Exceeded secondsElapsed! Waiting for a reconnect_url...")
-		// if reconnect .. {"type":"reconnect_url","url":"wss://mpmulti-fzxb.slack-msgs.com/stripped"}
-		var slackEvent slackRtmEvent
-		readFromSlack = bytes.Trim(readFromSlack, "\x00")
-		err := json.Unmarshal(readFromSlack, &slackEvent)
-		if err != nil {
-			log.Printf("Skipping JSON message from slack! Error decoding JSON: %s", err)
-			return
-		}
-		if slackEvent.Type == "reconnect_url" {
-			if wsClient.ws.IsClientConn() {
-				logDebug("IsClientConn() says we ARE connected!")
-			} else {
-				logDebug("IsClientConn() says we ARENT connected!")
-			}
-
-			closeErr := wsClient.ws.Close()
-			if closeErr != nil {
-				log.Fatal(fmt.Sprintf("Error closing websocket for reconnect: %s", closeErr))
-			}
-
-			ws := connectWebsocket(slackEvent.Url)
-			*wsClient = websocketData{ws}
-			log.Printf("Reconnected to reconnect_url: [%s]", slackEvent.Url)
-			if wsClient.ws.IsClientConn() {
-				logDebug("IsClientConn() says connected after reconnect!")
-			}
-		}
-	}
-}
-*/
-
 func connAndCreateWsClient() websocketData {
 	wssUrl := rtmStart()
 	ws := connectWebsocket(wssUrl)
@@ -124,8 +86,20 @@ func connectToSlack() {
 		select {
 		case readFromSlack := <-message:
 			log.Printf("received: %s", readFromSlack)
-			dilbertRoutine(wsClient)
-			processJiraReq(wsClient, readFromSlack)
+
+			var slackEvent slackRtmEvent
+			readFromSlack = bytes.Trim(readFromSlack, "\x00")
+			if unencodeErr := json.Unmarshal(readFromSlack, &slackEvent); unencodeErr != nil {
+				log.Printf("Invalid json received from slack? [%s]", unencodeErr)
+			}
+			if slackEvent.Type == "team_migration_started" {
+				log.Printf("Team migration started. Will need to reconnect!")
+				time.Sleep(time.Second * 10)
+				wsClient = connAndCreateWsClient()
+			} else {
+				dilbertRoutine(wsClient)
+				processJiraReq(wsClient, readFromSlack)
+			}
 		case <-slackTimeout:
 			// damn you slack
 			log.Printf("Hit slackTimeout! Attempting reconnection...")
